@@ -1,0 +1,8 @@
+# Reserved configuration location for later ICE-NAV milestones.
+# None of these sections are consumed by Milestone 1.
+milestone_1_status: unused_placeholders_only
+
+risk_weights: {}
+route_modes: {}
+hard_constraints: {}
+
