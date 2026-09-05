@@ -10,6 +10,16 @@ export default function RouteComparison({
   if (!comparison) return null;
 
   const recommended = comparison.recommendation?.mode;
+
+  // Every resistance factor is >= 1.0, so the fuel index can only exceed route
+  // distance. When no route crosses ice heavy enough to bind, the two are
+  // equal. That is the correct output rather than a broken column, but it
+  // looks like a bug unless it is stated, so say it explicitly.
+  const iceBinds = MODES.some((mode) => {
+    const route = comparison.routes[mode];
+    if (!route?.success) return false;
+    return route.metrics.fuel_index - route.metrics.distance_km > 0.05;
+  });
   return (
     <section className="comparison-panel" aria-label="Route comparison">
       <div className="comparison-header">
@@ -75,6 +85,15 @@ export default function RouteComparison({
       )}
       <p className="fuel-footnote">
         Estimated Fuel Index is a dimensionless ice-adjusted distance proxy, not measured fuel consumption.
+        {!iceBinds && (
+          <>
+            {" "}
+            Every candidate route in this scenario stays below the 0.20 ice
+            concentration at which the resistance factor rises above 1.0, so the
+            index equals route distance here. It exceeds distance only where a
+            route is forced through heavier ice.
+          </>
+        )}
       </p>
     </section>
   );

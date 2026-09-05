@@ -21,7 +21,7 @@ from backend.engine.routing import plan_route
 from backend.api.forecast import ForecastCache
 from backend.engine.explain import explain_route_change
 from backend.engine.geo import haversine_km
-from backend.engine.hazard import detect_hazard, evaluate_route
+from backend.engine.hazard import detect_hazard, evaluate_route, remaining_route_metrics
 from backend.engine.iceberg import FeatureOrderMismatchError, warm_ml_model
 from backend.engine.scenarios import ScenarioRegistry
 from backend.engine.validation import run_backtest
@@ -205,8 +205,67 @@ def _forecast_data() -> dict[int, tuple[dict[str, Any], dict[str, Any]]]:
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict[str, Any]:
+    """Report per-component readiness, not just process liveness.
+
+    A bare {"status": "ok"} only proves the web server answered. Before a
+    demonstration the useful question is whether the scenario parsed, the
+    forecast cache actually built, and which drift model is really in force,
+    so each of those is checked here and surfaced individually.
+
+    Degraded means the application still serves every endpoint but something
+    optional is missing - most commonly the ML model, which falls back to the
+    free-drift baseline by design.
+    """
+    components: dict[str, Any] = {}
+
+    try:
+        scenario = load_scenario()
+        components["scenario"] = {
+            "status": "ok",
+            "scenario_id": scenario["meta"]["scenario_id"],
+            "data_source": scenario["meta"]["data_source"],
+            "cells": len(scenario["cells"]),
+            "icebergs": len(scenario["icebergs"]),
+        }
+    except RuntimeError as exc:
+        components["scenario"] = {"status": "error", "detail": str(exc)}
+
+    try:
+        horizons = list(FORECASTS.horizons)
+        cached = [hour for hour in horizons if FORECASTS.risk(hour) is not None]
+        components["forecast_cache"] = {
+            "status": "ok" if len(cached) == len(horizons) else "degraded",
+            "horizons_hours": horizons,
+            "cached_horizons": len(cached),
+        }
+    except Exception as exc:  # pragma: no cover - defensive
+        components["forecast_cache"] = {"status": "error", "detail": str(exc)}
+
+    forecast_cfg = APP_CONFIG["forecast"]
+    ml_metadata = forecast_cfg.get("ml_validation_metadata")
+    requested_drift = forecast_cfg.get("drift_model")
+    effective_drift = requested_drift
+    if requested_drift == "ml" and not ml_metadata:
+        effective_drift = "free_drift"
+    components["iceberg_model"] = {
+        "status": "ok" if ml_metadata else "degraded",
+        "requested_drift_model": requested_drift,
+        "effective_drift_model": effective_drift,
+        "trained_at": (ml_metadata or {}).get("trained_at"),
+        "validated_resolution": (ml_metadata or {}).get("validated_resolution"),
+        "detail": None if ml_metadata else "Optional ML model unavailable; free-drift baseline in use.",
+    }
+
+    components["risk_config"] = {
+        "status": "ok",
+        "version": RISK_CONFIG.get("version"),
+        "weights": RISK_CONFIG.get("weights"),
+    }
+
+    statuses = {component["status"] for component in components.values()}
+    overall = "error" if "error" in statuses else ("degraded" if "degraded" in statuses else "ok")
+    return {"status": overall, "version": app.version, "components": components}
 
 
 @app.get("/scenarios")
@@ -338,12 +397,33 @@ def route_reroute(request: RerouteRequest) -> dict[str, Any]:
     alternate["forecast_evaluation"] = alternate_eval
     explained_alternate = {**alternate, "metrics": {**alternate["metrics"], "safety_score": alternate_eval["safety_score"]}}
     explanation = explain_route_change(base_eval, forecast_eval, hazard, explained_alternate)
-    current_metrics = {"safety_score": forecast_eval["safety_score"], "distance_km": 0.0, "eta_hours": 0.0, "fuel_index": 0.0}
+    remaining = remaining_route_metrics(
+        forecast_eval["waypoints"],
+        _coordinates(request.current_position),
+        forecast_scenario,
+        forecast_risk,
+        APP_CONFIG,
+        float(alternate.get("straight_line_km") or 0.0),
+    )
+    current_metrics = {
+        "safety_score": forecast_eval["safety_score"],
+        "distance_km": round(remaining["distance_km"], 1) if remaining else None,
+        "eta_hours": round(remaining["eta_hours"], 1) if remaining else None,
+        "fuel_index": round(remaining["fuel_index"], 1) if remaining else None,
+    }
     comparison = {}
     for key in ("safety_score", "distance_km", "eta_hours", "fuel_index"):
         original = current_metrics[key]
         new = alternate_eval["safety_score"] if key == "safety_score" else alternate["metrics"][key]
-        comparison[key] = {"original": original, "alternate": new, "delta": round(new-original, 1)}
+        delta = round(new - original, 1) if original is not None else None
+        comparison[key] = {"original": original, "alternate": new, "delta": delta}
+    explanation["route_change"].update(
+        {
+            "additional_distance_km": comparison["distance_km"]["delta"],
+            "additional_time_hours": comparison["eta_hours"]["delta"],
+            "additional_fuel_index": comparison["fuel_index"]["delta"],
+        }
+    )
     return {**hazard, "original_route": forecast_eval, "alternate_route": alternate, "explanation": explanation, "comparison": comparison}
 
 

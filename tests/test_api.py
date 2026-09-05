@@ -9,7 +9,34 @@ client = TestClient(main.app)
 def test_health_endpoint() -> None:
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    payload = response.json()
+    assert payload["status"] in {"ok", "degraded"}
+    assert payload["version"]
+
+    components = payload["components"]
+    assert set(components) == {
+        "scenario",
+        "forecast_cache",
+        "iceberg_model",
+        "risk_config",
+    }
+    # No component may be in error on a correctly installed checkout.
+    assert all(component["status"] != "error" for component in components.values())
+
+    # The health report must describe the real loaded scenario, so a stale or
+    # wrong scenario is visible before a demonstration rather than during one.
+    assert components["scenario"]["scenario_id"] == "prydz-bay-demo-v1"
+    assert components["scenario"]["cells"] == 900
+    assert components["forecast_cache"]["cached_horizons"] == len(
+        components["forecast_cache"]["horizons_hours"]
+    )
+    # Whatever drift model is requested, health must state which one is
+    # actually in force after any fallback.
+    assert components["iceberg_model"]["effective_drift_model"] in {
+        "persistence",
+        "free_drift",
+        "ml",
+    }
 
 
 def test_local_frontend_origin_is_allowed() -> None:

@@ -4,12 +4,84 @@ from __future__ import annotations
 
 from typing import Any
 
+from .fuel import fuel_metrics
+from .geo import haversine_km
 from .grid import GridConfig, latlon_to_cell
+from .routing import _routing_grid, path_metrics
 
 
 def _grid_config(document: dict[str, Any]) -> GridConfig:
     meta = document["meta"]
     return GridConfig(**meta["bounds"], rows=meta["grid"]["rows"], cols=meta["grid"]["cols"])
+
+
+def remaining_route_metrics(
+    evaluated_waypoints: list[dict[str, Any]],
+    current_position: tuple[float, float],
+    scenario: dict[str, Any],
+    risk_grid: dict[str, Any],
+    cfg: dict[str, Any],
+    straight_line_km: float,
+) -> dict[str, float] | None:
+    """Measure the still-unsailed part of a committed route on one snapshot.
+
+    An alternate route is planned from ``current_position``, so comparing it
+    against the committed route's *full* length would be dishonest: the vessel
+    has already covered the earlier legs. This trims the committed route to the
+    waypoint nearest ``current_position`` and measures only what remains, which
+    makes "additional distance / time / fuel" a like-for-like difference.
+
+    Returns ``None`` when fewer than two waypoints remain, because distance and
+    ETA are undefined for a single point.
+    """
+    if not evaluated_waypoints:
+        return None
+
+    nearest_index = min(
+        range(len(evaluated_waypoints)),
+        key=lambda index: haversine_km(
+            current_position[0],
+            current_position[1],
+            float(evaluated_waypoints[index]["lat"]),
+            float(evaluated_waypoints[index]["lon"]),
+        ),
+    )
+    remaining = evaluated_waypoints[nearest_index:]
+    if len(remaining) < 2:
+        return None
+
+    path: list[tuple[int, int]] = []
+    for point in remaining:
+        cell = (int(point["row"]), int(point["col"]))
+        if not path or path[-1] != cell:
+            path.append(cell)
+    if len(path) < 2:
+        return None
+
+    # path_metrics and fuel_metrics both read ice_concentration, which lives on
+    # the scenario cells rather than the risk grid, so merge them the same way
+    # plan_route does.
+    merged_grid = _routing_grid(scenario, risk_grid)
+    goal = (float(remaining[-1]["lat"]), float(remaining[-1]["lon"]))
+    metrics = path_metrics(
+        path,
+        merged_grid,
+        scenario["vessel"],
+        cfg,
+        start_latlon=current_position,
+        goal_latlon=goal,
+    )
+    metrics.update(
+        fuel_metrics(
+            path,
+            merged_grid,
+            straight_line_km,
+            cfg,
+            start_latlon=current_position,
+            goal_latlon=goal,
+        )
+    )
+    return metrics
 
 
 def evaluate_route(
