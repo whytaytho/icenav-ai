@@ -89,6 +89,14 @@ Direct reference: 344.4 km.
 
 > "We commit to the balanced route. Planned safety, 89.8 out of 100."
 
+> **Do not skip the BALANCED click.** `COMPARE ALL MODES` leaves the
+> *recommended* mode selected, which on this scenario is Fastest. Committing
+> without selecting Balanced first still works and still fires the alert, but
+> the reroute then costs **+9.7 km to safety 87.9** instead of the
+> **+12.0 km to 87.5** quoted below, because the reroute is planned with the
+> active mode's risk-aversion coefficient. Both are correct; only one matches
+> this script.
+
 ---
 
 ## 1:20–2:10 — The forecast turns
