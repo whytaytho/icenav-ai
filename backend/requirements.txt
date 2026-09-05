@@ -1,7 +1,30 @@
-fastapi>=0.115,<1.0
-uvicorn[standard]>=0.30,<1.0
-pytest>=8.0,<10.0
-httpx>=0.27,<1.0
-PyYAML>=6.0,<7.0
-scikit-learn>=1.5,<2.0
-pyproj>=3.6,<4.0
+# Pinned to the exact versions this project is tested against.
+#
+# scikit-learn is pinned rather than ranged for a specific reason: the
+# committed iceberg model in backend/models/ was trained with 1.6.1, and
+# unpickling an estimator under a different scikit-learn version raises
+# InconsistentVersionWarning, which the library documents as potentially
+# producing invalid results. Pinning keeps the shipped model loading exactly
+# as it was trained.
+#
+# If you retrain the model (python -m backend.ingestion.train_iceberg_model),
+# bump this pin to the version you trained under; that version is recorded in
+# backend/models/iceberg_model_meta.json.
+#
+# numpy is pinned because scikit-learn binary compatibility depends on it.
+
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+PyYAML==6.0.3
+
+numpy==2.5.2
+scikit-learn==1.6.1
+
+# Only imported by backend/ingestion/preprocess.py for the EPSG:3031 sea-ice
+# reprojection path. The application and the demo run without it.
+pyproj==3.8.0
+
+# Test-only.
+pytest==9.1.1
+httpx==0.28.1

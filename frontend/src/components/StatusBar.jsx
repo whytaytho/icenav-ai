@@ -4,8 +4,14 @@ function formatDataSource(dataSource) {
   return dataSource || "—";
 }
 
-export default function StatusBar({ backendOnline, meta, riskMeta }) {
+export default function StatusBar({ backendOnline, health, meta, riskMeta }) {
   const synthetic = meta?.data_source?.startsWith("synthetic");
+  // A degraded backend still serves every endpoint; say so plainly rather
+  // than either hiding it or misreporting the service as down.
+  const degraded = health?.status === "degraded";
+  const backendLabel = !backendOnline ? "OFFLINE" : degraded ? "DEGRADED" : "ONLINE";
+  const backendClass = !backendOnline ? "offline" : degraded ? "degraded" : "online";
+  const drift = health?.components?.iceberg_model?.effective_drift_model;
   return (
     <section className="status-bar" aria-label="System status">
       <div className="brand-cell">
@@ -17,10 +23,21 @@ export default function StatusBar({ backendOnline, meta, riskMeta }) {
       </div>
       <div>
         <span className="status-label">Backend</span>
-        <strong className={backendOnline ? "online" : "offline"}>
+        <strong
+          className={backendClass}
+          title={
+            degraded
+              ? health?.components?.iceberg_model?.detail || "Running with reduced optional capability"
+              : undefined
+          }
+        >
           <span className="status-dot" aria-hidden="true" />
-          {backendOnline ? "ONLINE" : "OFFLINE"}
+          {backendLabel}
         </strong>
+      </div>
+      <div>
+        <span className="status-label">Drift model</span>
+        <strong>{drift ? drift.replace("_", " ").toUpperCase() : "—"}</strong>
       </div>
       <div>
         <span className="status-label">Scenario</span>

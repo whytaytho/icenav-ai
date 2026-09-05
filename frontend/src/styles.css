@@ -184,6 +184,7 @@ h1 {
 .brand-mark { color: var(--cyan); font-size: 1.25rem; }
 .status-bar strong.online { color: var(--green); }
 .status-bar strong.offline, .danger-text { color: var(--red) !important; }
+.status-bar strong.degraded { color: var(--amber, #ffcf4a); }
 
 .status-dot {
   width: 8px;
