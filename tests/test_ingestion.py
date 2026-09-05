@@ -1,9 +1,12 @@
 import json
+import socket
 
+from fastapi.testclient import TestClient
 from backend.data.generate_scenario import build_scenario
 from backend.engine.schema import validate_scenario
 from backend.engine.scenarios import ScenarioRegistry
 from backend.ingestion.preprocess import apply_observations, transform_roundtrip
+from backend.main import app
 
 
 def test_projection_roundtrip():
@@ -15,6 +18,8 @@ def test_missing_data_is_flagged_not_zeroed():
     scenario = apply_observations(build_scenario(), {}, "confirmed_source", "real-test")
     assert all(cell["data_quality"] == "missing" and not cell["is_navigable"] for cell in scenario["cells"])
     validate_scenario(scenario)
+    assert len(scenario["cells"]) == scenario["meta"]["grid"]["rows"] * scenario["meta"]["grid"]["cols"]
+    assert all(0 <= cell["ice_concentration"] <= 1 for cell in scenario["cells"])
 
 
 def test_registry_falls_back_to_synthetic(tmp_path):
@@ -22,3 +27,23 @@ def test_registry_falls_back_to_synthetic(tmp_path):
     (tmp_path / "demo_scenario.json").write_text(json.dumps(base), encoding="utf-8")
     registry = ScenarioRegistry(tmp_path)
     assert registry.load("absent")["meta"]["scenario_id"] == "prydz-bay-demo-v1"
+
+
+def test_request_time_paths_do_not_open_network_connections(monkeypatch):
+    def reject_network(*args, **kwargs):
+        raise AssertionError("runtime endpoint attempted an external network connection")
+
+    monkeypatch.setattr(socket, "create_connection", reject_network)
+    client = TestClient(app)
+    environment = client.get("/environment/current").json()
+    responses = [
+        client.get("/health"),
+        client.get("/scenarios"),
+        client.get("/environment/current"),
+        client.get("/environment/risk"),
+        client.get("/forecast/horizons"),
+        client.get("/forecast?hour=6"),
+        client.get("/validation/options"),
+        client.post("/route", json={"start": environment["vessel"], "destination": environment["destination"], "mode": "balanced"}),
+    ]
+    assert all(response.status_code == 200 for response in responses)

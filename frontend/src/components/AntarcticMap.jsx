@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useMemo } from "react";
 import L from "leaflet";
 import {
   CircleMarker,
@@ -60,12 +60,17 @@ const destinationIcon = L.divIcon({
   iconAnchor: [19, 19],
 });
 
-const icebergIcon = L.divIcon({
-  className: "map-marker-shell",
-  html: icebergSprite,
-  iconSize: [38, 32],
-  iconAnchor: [19, 18],
-});
+const icebergIcons = {
+  small: L.divIcon({ className: "map-marker-shell", html: icebergSprite, iconSize: [24, 20], iconAnchor: [12, 11] }),
+  medium: L.divIcon({ className: "map-marker-shell", html: icebergSprite, iconSize: [28, 24], iconAnchor: [14, 13] }),
+  large: L.divIcon({ className: "map-marker-shell", html: icebergSprite, iconSize: [32, 27], iconAnchor: [16, 15] }),
+};
+
+function icebergIconFor(radiusKm) {
+  if (radiusKm >= 1.75) return icebergIcons.large;
+  if (radiusKm >= 1.2) return icebergIcons.medium;
+  return icebergIcons.small;
+}
 
 function concentrationStyle(cell) {
   if (cell.is_land) {
@@ -91,10 +96,15 @@ function riskStyle(riskCell) {
     return { fillColor: "#302d49", fillOpacity: 1, color: "#f05474", weight: 1.15 };
   }
   if (!riskCell.is_navigable) {
+    const blockedStyles = {
+      land: { fillColor: "#242233", color: "#ff4f70" },
+      heavy_ice: { fillColor: "#71354f", color: "#ff8ba2" },
+      iceberg_exclusion: { fillColor: "#7b4521", color: "#ffcf4a" },
+    };
+    const blockedStyle = blockedStyles[riskCell.block_reason] || blockedStyles.land;
     return {
-      fillColor: "#242233",
+      ...blockedStyle,
       fillOpacity: 1,
-      color: "#ff4f70",
       weight: 1.3,
       className: "blocked-cell",
     };
@@ -174,8 +184,13 @@ export default function AntarcticMap({
   const maxCol = Math.max(...cells.map((cell) => cell.col));
   const cellHeightDeg = (bounds.lat_max - bounds.lat_min) / (maxRow + 1);
   const cellWidthDeg = (bounds.lon_max - bounds.lon_min) / (maxCol + 1);
-  const riskByCell = new Map(
-    riskCells.map((cell) => [`${cell.row}-${cell.col}`, cell]),
+  const riskByCell = useMemo(
+    () => new Map(riskCells.map((cell) => [`${cell.row}-${cell.col}`, cell])),
+    [riskCells],
+  );
+  const originById = useMemo(
+    () => new Map(originIcebergs.map((iceberg) => [iceberg.id, iceberg])),
+    [originIcebergs],
   );
 
   const projectPoint = (lat, lon) => [
@@ -203,6 +218,7 @@ export default function AntarcticMap({
         minZoom={4}
         zoomSnap={0.25}
         attributionControl={false}
+        preferCanvas
       >
         <Rectangle
           bounds={projectedBounds}
@@ -277,13 +293,13 @@ export default function AntarcticMap({
 
         {icebergs.map((iceberg) => {
           const position = projectPoint(iceberg.lat, iceberg.lon);
-          const origin = originIcebergs.find((item) => item.id === iceberg.id);
+          const origin = originById.get(iceberg.id);
           return (
             <Fragment key={iceberg.id}>
               {forecastHour > 0 && origin && <><CircleMarker center={projectPoint(origin.lat, origin.lon)} radius={5} pathOptions={{ color: "#aab8df", fillColor: "#fff", fillOpacity: 0.2, opacity: 0.5 }} /><Polyline positions={[projectPoint(origin.lat, origin.lon), position]} pathOptions={{ color: iceberg.id === "IB-04" ? "#ffcf4a" : "#aab8df", weight: iceberg.id === "IB-04" ? 3 : 1, dashArray: "3 5" }} /></>}
               <CircleMarker
                 center={position}
-                radius={8 + iceberg.safety_buffer_km}
+                radius={Math.min(10, 5 + iceberg.safety_buffer_km * 0.9)}
                 pathOptions={{
                   color: "#f6f4cf",
                   weight: 1.5,
@@ -293,7 +309,11 @@ export default function AntarcticMap({
                   className: "iceberg-buffer",
                 }}
               />
-              <Marker position={position} icon={icebergIcon}>
+              <Marker
+                position={position}
+                icon={icebergIconFor(iceberg.radius_km)}
+                riseOnHover
+              >
                 <Tooltip direction="top" offset={[0, -12]} className="pixel-tooltip">
                   <strong>{iceberg.id}</strong>
                 </Tooltip>

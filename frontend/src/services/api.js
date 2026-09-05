@@ -39,8 +39,10 @@ export function getEnvironment(forecastHour = 0, scenario = "") {
   return requestJson(`/environment/current${scenario ? `?scenario=${encodeURIComponent(scenario)}` : ""}`);
 }
 
-export function getRiskGrid(forecastHour = 0) {
-  return requestJson(`/environment/risk?forecast_hour=${encodeURIComponent(forecastHour)}`);
+export function getRiskGrid(forecastHour = 0, scenario = "") {
+  const query = new URLSearchParams({ forecast_hour: String(forecastHour) });
+  if (scenario) query.set("scenario", scenario);
+  return requestJson(`/environment/risk?${query.toString()}`);
 }
 
 export function getRiskConfig() {
@@ -67,6 +69,7 @@ export function rebuildForecast(driftModel) { return requestJson(`/forecast/rebu
 export function reroute(payload) { return requestJson("/route/reroute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); }
 export function getScenarios() { return requestJson("/scenarios"); }
 export function getValidationOptions() { return requestJson("/validation/options"); }
+export function getValidationTimes(bergId) { return requestJson(`/validation/times?berg_id=${encodeURIComponent(bergId)}`); }
 export function getBacktest(bergId, model = "persistence", t0 = "") { return requestJson(`/validation/backtest?berg_id=${encodeURIComponent(bergId)}&model=${encodeURIComponent(model)}${t0 ? `&t0=${encodeURIComponent(t0)}` : ""}`); }
 
 export function compareRoutes({ start, destination, forecastHour = 0 }) {

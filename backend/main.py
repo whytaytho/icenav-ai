@@ -6,6 +6,7 @@ import json
 import math
 import csv
 import pickle
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
 
@@ -19,12 +20,15 @@ from backend.engine.risk import compute_risk_grid
 from backend.engine.routing import plan_route
 from backend.api.forecast import ForecastCache
 from backend.engine.explain import explain_route_change
+from backend.engine.geo import haversine_km
 from backend.engine.hazard import detect_hazard, evaluate_route
+from backend.engine.iceberg import FeatureOrderMismatchError, warm_ml_model
 from backend.engine.scenarios import ScenarioRegistry
 from backend.engine.validation import run_backtest
 
 SCENARIO_PATH = Path(__file__).resolve().parent / "data" / "demo_scenario.json"
 CONFIG_PATH = Path(__file__).resolve().parent / "config" / "weights.yaml"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
 class Coordinate(BaseModel):
@@ -141,6 +145,10 @@ def load_app_config(config_path: Path) -> dict[str, Any]:
 
 APP_CONFIG = load_app_config(CONFIG_PATH)
 RISK_CONFIG = APP_CONFIG["risk_model"]
+try:
+    warm_ml_model(APP_CONFIG, REPOSITORY_ROOT)
+except FeatureOrderMismatchError as exc:
+    raise RuntimeError(str(exc)) from exc
 
 app = FastAPI(
     title="ICE-NAV AI API",
@@ -149,7 +157,7 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
@@ -176,7 +184,6 @@ def load_scenario() -> dict[str, Any]:
 
 
 DATA_DIR = SCENARIO_PATH.parent
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SCENARIOS = ScenarioRegistry(DATA_DIR, APP_CONFIG["ingestion"]["real_scenario_glob"])
 FORECASTS = ForecastCache(SCENARIOS.load(), APP_CONFIG)
 
@@ -216,7 +223,11 @@ def environment_current(scenario: Optional[str] = None) -> dict[str, Any]:
 
 
 @app.get("/environment/risk")
-def environment_risk(forecast_hour: int = 0) -> dict[str, Any]:
+def environment_risk(forecast_hour: int = 0, scenario: Optional[str] = None) -> dict[str, Any]:
+    if scenario and scenario != "prydz-bay-demo-v1":
+        if forecast_hour != 0:
+            raise HTTPException(status_code=400, detail="Observed scenarios provide current conditions only")
+        return compute_risk_grid(SCENARIOS.load(scenario), RISK_CONFIG)
     _validate_forecast_hour(forecast_hour)
     return FORECASTS.risk(forecast_hour)
 
@@ -347,6 +358,22 @@ def _historical_tracks() -> dict[str, list[dict[str, Any]]]:
     return tracks
 
 
+def _suggested_validation_case(tracks: dict[str, list[dict[str, Any]]]) -> dict[str, str] | None:
+    """Select the first clearly moving daily case using observations only."""
+    for berg_id in sorted(tracks):
+        track = sorted(tracks[berg_id], key=lambda item: item["timestamp"])
+        for index in range(2, len(track) - 1):
+            current_time = datetime.fromisoformat(track[index]["timestamp"].replace("Z", "+00:00"))
+            next_time = datetime.fromisoformat(track[index + 1]["timestamp"].replace("Z", "+00:00"))
+            if (next_time - current_time).total_seconds() != 24 * 3600:
+                continue
+            previous_km = haversine_km(track[index - 1]["lat"], track[index - 1]["lon"], track[index]["lat"], track[index]["lon"])
+            observed_km = haversine_km(track[index]["lat"], track[index]["lon"], track[index + 1]["lat"], track[index + 1]["lon"])
+            if 3.0 <= previous_km <= 20.0 and 5.0 <= observed_km <= 20.0:
+                return {"berg_id": berg_id, "t0": track[index]["timestamp"]}
+    return None
+
+
 @app.get("/validation/options")
 def validation_options() -> dict[str, Any]:
     tracks = _historical_tracks()
@@ -355,7 +382,34 @@ def validation_options() -> dict[str, Any]:
         summary = json.loads((REPOSITORY_ROOT / APP_CONFIG["forecast"]["ml_metadata_path"]).read_text(encoding="utf-8"))["metrics"]
     except (OSError, KeyError, json.JSONDecodeError):
         pass
-    return {"berg_ids": sorted(berg_id for berg_id, track in tracks.items() if len(track) >= 4), "validated_horizons_hours": [24], "data_source": "BYU/NIC Consolidated Antarctic Iceberg Tracking Database v8.0", "summary": summary}
+    return {
+        "berg_ids": sorted(berg_id for berg_id, track in tracks.items() if len(track) >= 4),
+        "iceberg_count": len(tracks),
+        "observation_count": sum(len(track) for track in tracks.values()),
+        "validated_horizons_hours": [24],
+        "data_source": "BYU/NIC Consolidated Antarctic Iceberg Tracking Database v8.0",
+        "citation": "J.S. Budge and D.G. Long, IEEE JSTARS 11(2), doi:10.1109/JSTARS.2017.2784186 (2017).",
+        "suggested_case": _suggested_validation_case(tracks),
+        "summary": summary,
+    }
+
+
+@app.get("/validation/times")
+def validation_times(berg_id: str) -> dict[str, Any]:
+    tracks = _historical_tracks()
+    if berg_id not in tracks:
+        raise HTTPException(status_code=404, detail="Historical iceberg not found")
+    track = sorted(tracks[berg_id], key=lambda item: item["timestamp"])
+    timestamps = {item["timestamp"] for item in track}
+    valid_t0 = []
+    for index, item in enumerate(track):
+        if index < 2:
+            continue
+        current_time = datetime.fromisoformat(item["timestamp"].replace("Z", "+00:00"))
+        target = (current_time + timedelta(hours=24)).isoformat().replace("+00:00", "Z")
+        if target in timestamps:
+            valid_t0.append(item["timestamp"])
+    return {"berg_id": berg_id, "t0_values": valid_t0}
 
 
 @app.get("/validation/backtest")

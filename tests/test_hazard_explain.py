@@ -36,7 +36,7 @@ def test_demo_closing_lead_reroutes_around_ib04():
     environment = client.get("/environment/current").json()
     route = client.post("/route", json={"start": environment["vessel"], "destination": environment["destination"], "mode": "balanced"}).json()
     result = client.post("/route/reroute", json={"current_route": [{"lat": point["lat"], "lon": point["lon"], "arrival_hour": point.get("arrival_hour")} for point in route["route_raw"]], "current_position": environment["vessel"], "destination": environment["destination"], "mode": "balanced", "evaluate_at_hour": 6}).json()
-    assert 85 <= result["original_safety"] <= 95
-    assert 40 <= result["forecast_safety"] <= 55
+    assert result["original_safety"] >= 65
+    assert result["forecast_safety"] <= result["original_safety"] - 20
     assert result["responsible_icebergs"] == ["IB-04"]
-    assert result["alternate_route"]["forecast_evaluation"]["safety_score"] >= 88
+    assert result["alternate_route"]["forecast_evaluation"]["safety_score"] > result["forecast_safety"]

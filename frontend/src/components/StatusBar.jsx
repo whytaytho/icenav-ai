@@ -5,6 +5,7 @@ function formatDataSource(dataSource) {
 }
 
 export default function StatusBar({ backendOnline, meta, riskMeta }) {
+  const synthetic = meta?.data_source?.startsWith("synthetic");
   return (
     <section className="status-bar" aria-label="System status">
       <div className="brand-cell">
@@ -27,7 +28,7 @@ export default function StatusBar({ backendOnline, meta, riskMeta }) {
       </div>
       <div>
         <span className="status-label">Data source</span>
-        <strong className={meta?.data_source?.startsWith("synthetic") ? "source-synthetic" : "source-observed"}>{formatDataSource(meta?.data_source)}</strong>
+        <strong className={synthetic ? "source-synthetic" : "source-observed"}><span className={`source-badge ${synthetic ? "synthetic" : "observed"}`}>{synthetic ? "SYNTHETIC" : "OBSERVED"}</span>{formatDataSource(meta?.data_source)}</strong>
       </div>
       <div>
         <span className="status-label">Forecast</span>

@@ -23,8 +23,10 @@ behaviour.
 
 The processed 60–90°E, 80–60°S subset contains 95 icebergs and 45,345
 observations from 1994-05-22 through 2004-06-30, with a median 24-hour interval.
-Redistribution terms for the derived subset still require human confirmation;
-the raw ZIP is therefore gitignored.
+The archive is publicly downloadable, but the source page does not state an
+explicit redistribution licence for republishing a derived CSV. The raw ZIP and
+processed track subset are therefore gitignored; each demo machine must run the
+documented ahead-of-time acquisition step while online, then operates offline.
 
 ## ML experiment
 

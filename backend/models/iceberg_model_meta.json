@@ -1,5 +1,5 @@
 {
-  "trained_at": "2026-09-05T20:02:30.315922+00:00",
+  "trained_at": "2026-09-05T22:02:51.867292+00:00",
   "sklearn_version": "1.6.1",
   "feature_names": [
     "lat",
@@ -18,28 +18,41 @@
   "data_source": "BYU/NIC Consolidated Antarctic Iceberg Tracking Database v8.0",
   "split_strategy": "group by berg_id; temporal holdout additionally reported",
   "training_samples": 37364,
+  "hyperparameters": {
+    "n_estimators": 120,
+    "max_depth": 14,
+    "min_samples_leaf": 2,
+    "random_state": 26059
+  },
+  "parameter_selection": "Fixed before holdout evaluation; neither holdout set was used for tuning.",
   "metrics": {
     "group_holdout": {
       "ml": {
         "sample_size": 7342,
-        "mean_position_error_km": 2.3496146274828504,
-        "median_position_error_km": 0.2217242299044391,
-        "p90_position_error_km": 7.052345862523316,
-        "rmse_km": 5.593209996830349
+        "mean_position_error_km": 2.349614480816303,
+        "median_position_error_km": 0.221724229903547,
+        "p90_position_error_km": 7.0523458613151,
+        "rmse_km": 5.593209568253183,
+        "mae_north_km": 1.3700515635615216,
+        "mae_east_km": 1.5974139677561119
       },
       "persistence": {
         "sample_size": 7342,
-        "mean_position_error_km": 2.934840150478294,
+        "mean_position_error_km": 2.9348397192648514,
         "median_position_error_km": 0.0,
-        "p90_position_error_km": 9.640446570548608,
-        "rmse_km": 6.800270418373968
+        "p90_position_error_km": 9.640446570529408,
+        "rmse_km": 6.800269112263163,
+        "mae_north_km": 1.7511031754189117,
+        "mae_east_km": 1.9700355289261227
       },
       "zero": {
         "sample_size": 7342,
-        "mean_position_error_km": 2.3577835384453003,
+        "mean_position_error_km": 2.3577835384452874,
         "median_position_error_km": 0.0,
-        "p90_position_error_km": 7.660280990846362,
-        "rmse_km": 6.319089499890424
+        "p90_position_error_km": 7.6602809908453215,
+        "rmse_km": 6.3190894998904,
+        "mae_north_km": 1.3460321439058762,
+        "mae_east_km": 1.6455481118769473
       },
       "free_drift": {
         "available": false,
@@ -49,24 +62,30 @@
     "temporal_holdout": {
       "ml": {
         "sample_size": 8942,
-        "mean_position_error_km": 0.6656135332903547,
-        "median_position_error_km": 0.12064886844832803,
-        "p90_position_error_km": 1.3458086394787696,
-        "rmse_km": 1.7033017024002641
+        "mean_position_error_km": 0.66561351735561,
+        "median_position_error_km": 0.12064886844799991,
+        "p90_position_error_km": 1.345808629114037,
+        "rmse_km": 1.7033016355340351,
+        "mae_north_km": 0.440750115746621,
+        "mae_east_km": 0.4132643129626327
       },
       "persistence": {
         "sample_size": 8942,
-        "mean_position_error_km": 0.5785444306834937,
+        "mean_position_error_km": 0.578544419655385,
         "median_position_error_km": 0.0,
-        "p90_position_error_km": 0.8703329385009168,
-        "rmse_km": 2.25468231049104
+        "p90_position_error_km": 0.8703329373431938,
+        "rmse_km": 2.2546822875405086,
+        "mae_north_km": 0.3476200008583687,
+        "mae_east_km": 0.41305689986460953
       },
       "zero": {
         "sample_size": 8942,
-        "mean_position_error_km": 0.7746602558407926,
+        "mean_position_error_km": 0.7746602558407909,
         "median_position_error_km": 0.0,
-        "p90_position_error_km": 1.8621190315310643,
-        "rmse_km": 2.6630082045782895
+        "p90_position_error_km": 1.8621190315312575,
+        "rmse_km": 2.663008204578294,
+        "mae_north_km": 0.38404879997231633,
+        "mae_east_km": 0.5856284860552646
       },
       "free_drift": {
         "available": false,

@@ -28,6 +28,10 @@ from .grid import GridConfig, latlon_to_cell
 LOGGER = logging.getLogger(__name__)
 
 
+class FeatureOrderMismatchError(ValueError):
+    pass
+
+
 def to_components(speed: float, direction_deg: float) -> tuple[float, float]:
     """Return east and north components for a compass-bearing vector."""
     direction_rad = math.radians(direction_deg % 360.0)
@@ -151,9 +155,28 @@ def _load_ml(model_path: str, metadata_path: str) -> tuple[Any, dict[str, Any]]:
     from .iceberg_features import FEATURE_NAMES
     metadata = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
     if metadata.get("feature_names") != FEATURE_NAMES:
-        raise ValueError("ML feature order does not match model metadata")
+        raise FeatureOrderMismatchError("ML feature order does not match model metadata")
     with Path(model_path).open("rb") as source:
         return pickle.load(source), metadata
+
+
+def warm_ml_model(cfg: dict[str, Any], repository_root: Path) -> dict[str, Any] | None:
+    """Load and validate the optional model once during application startup."""
+    forecast_cfg = cfg["forecast"]
+    model_path = (repository_root / forecast_cfg["ml_model_path"]).resolve()
+    metadata_path = (repository_root / forecast_cfg["ml_metadata_path"]).resolve()
+    forecast_cfg["ml_model_path"] = str(model_path)
+    forecast_cfg["ml_metadata_path"] = str(metadata_path)
+    try:
+        _, metadata = _load_ml(str(model_path), str(metadata_path))
+        forecast_cfg["ml_validation_metadata"] = metadata
+        return metadata
+    except FeatureOrderMismatchError:
+        raise
+    except Exception as exc:
+        forecast_cfg["ml_validation_metadata"] = None
+        LOGGER.warning("ML iceberg model unavailable at startup; free drift remains available: %s", exc)
+        return None
 
 
 def _ml_displacement(berg: dict[str, Any], hours: float, cfg: dict[str, Any]) -> tuple[float, float]:

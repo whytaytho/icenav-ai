@@ -20,9 +20,9 @@ def error_statistics(errors: list[float]) -> dict[str, float | int]:
 def run_backtest(track_data: list[dict[str, Any]], t0: str, horizons: list[int], model: Any, cfg: dict[str, Any]) -> dict[str, Any]:
     ordered = sorted(track_data, key=lambda item: item["timestamp"])
     index = next(index for index, item in enumerate(ordered) if item["timestamp"] == t0)
-    if index < 1:
-        raise ValueError("T0 requires at least one prior observation")
-    current, previous = ordered[index], ordered[index - 1]
+    if index < 2:
+        raise ValueError("T0 requires at least two prior observations")
+    previous_two, previous, current = ordered[index - 2], ordered[index - 1], ordered[index]
     current_time = datetime.fromisoformat(t0.replace("Z", "+00:00"))
     prior_hours = (current_time - datetime.fromisoformat(previous["timestamp"].replace("Z", "+00:00"))).total_seconds()/3600
     north, east = metric_displacement(previous, current)
@@ -45,5 +45,23 @@ def run_backtest(track_data: list[dict[str, Any]], t0: str, horizons: list[int],
         else:
             continue
         error = haversine_km(predicted_lat, predicted_lon, observed["lat"], observed["lon"])
-        predictions.append({"horizon_hours": horizon, "predicted": {"lat": predicted_lat, "lon": predicted_lon}, "observed": {"lat": observed["lat"], "lon": observed["lon"]}, "error_km": round(error, 3), "feature_cutoff": t0})
-    return {"berg_id": current["berg_id"], "t0": t0, "model": "ml" if hasattr(model, "predict") else str(model), "predictions": predictions, "statistics": error_statistics([item["error_km"] for item in predictions])}
+        feature_timestamps = [previous["timestamp"], current["timestamp"]]
+        if hasattr(model, "predict"):
+            feature_timestamps.insert(0, previous_two["timestamp"])
+        predictions.append({
+            "horizon_hours": horizon,
+            "predicted": {"lat": predicted_lat, "lon": predicted_lon},
+            "observed": {"lat": observed["lat"], "lon": observed["lon"]},
+            "observation_timestamp": observed["timestamp"],
+            "error_km": round(error, 3),
+            "feature_cutoff": t0,
+            "feature_timestamps": feature_timestamps,
+        })
+    return {
+        "berg_id": current["berg_id"],
+        "t0": t0,
+        "origin": {"lat": current["lat"], "lon": current["lon"]},
+        "model": "ml" if hasattr(model, "predict") else str(model),
+        "predictions": predictions,
+        "statistics": error_statistics([item["error_km"] for item in predictions]),
+    }

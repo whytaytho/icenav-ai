@@ -35,7 +35,7 @@ export default function Legend({ layerMode }) {
         <div className="legend-row blocked-row">
           <span className="legend-chip blocked" />
           <span>BLOCK</span>
-          <strong>{isRisk ? "FORBIDDEN" : "LAND"}</strong>
+          <strong>{isRisk ? "LAND / ICE / BERG" : "LAND"}</strong>
         </div>
       </div>
     </section>

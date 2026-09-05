@@ -198,6 +198,17 @@ def test_demo_grid_contract_counts_and_mixed_navigability(risk_cfg) -> None:
     assert result["meta"]["risk_model_version"] == risk_cfg["version"]
 
 
+def test_demo_navigable_risk_surface_spans_multiple_display_bands(risk_cfg) -> None:
+    scenario = json.loads(SCENARIO_PATH.read_text(encoding="utf-8"))
+    result = compute_risk_grid(scenario, risk_cfg)
+    risks = [cell["total_risk"] for cell in result["cells"] if cell["is_navigable"]]
+    occupied_bands = {
+        min(4, int(risk // 20))
+        for risk in risks
+    }
+    assert len(occupied_bands) >= 3
+
+
 def test_risk_grid_is_byte_deterministic(risk_cfg) -> None:
     scenario = json.loads(SCENARIO_PATH.read_text(encoding="utf-8"))
     first = json.dumps(compute_risk_grid(scenario, risk_cfg), sort_keys=True)

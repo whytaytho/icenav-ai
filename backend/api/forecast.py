@@ -18,6 +18,16 @@ def build_forecast_scenario(base_scenario: dict[str, Any], hours: int, cfg: dict
     scenario["icebergs"] = propagate_all(base_scenario, hours, cfg)
     models = sorted({berg.get("drift_model_used", cfg["forecast"].get("drift_model", "free_drift")) for berg in scenario["icebergs"]})
     scenario["meta"]["drift_model_used"] = models[0] if len(models) == 1 else "+".join(models)
+    if scenario["meta"]["drift_model_used"] == "ml":
+        metadata = cfg["forecast"].get("ml_validation_metadata") or {}
+        validated_horizons = metadata.get("horizons_hours", [])
+        scenario["meta"]["trajectory_validation"] = {
+            "validated": hours in validated_horizons,
+            "validated_horizons_hours": validated_horizons,
+            "group_holdout": metadata.get("metrics", {}).get("group_holdout", {}).get("ml"),
+            "temporal_holdout": metadata.get("metrics", {}).get("temporal_holdout", {}).get("ml"),
+            "population": "giant tabular icebergs",
+        }
     scenario["cells"] = advect_seaice(base_scenario, hours, cfg)
     return scenario
 

@@ -5,9 +5,9 @@
 
 risk_model:
   version: v1
-  # Display-scale compression for navigable-cell soft risk. Hard blocks remain
-  # 100. This is an engineered demo calibration, not an operational threshold.
-  soft_risk_scale: 0.30
+  # Preserve the full weighted 0-100 scale. Hard blocks remain 100. These
+  # prototype scores are visual decision-support values, not calibrated limits.
+  soft_risk_scale: 1.0
 
   # Relative contribution of each soft-risk component. Must sum to 1.0.
   weights:
@@ -38,9 +38,9 @@ risk_model:
 
 # Risk-aversion coefficient in cost = km * (1 + alpha * risk_norm).
 route_modes:
-  fastest:  {alpha: 0.5}
-  balanced: {alpha: 2.0}
-  safest:   {alpha: 6.0}
+  fastest:  {alpha: 0.0}
+  balanced: {alpha: 0.6}
+  safest:   {alpha: 4.0}
 
 # Mean exposure and worst-cell exposure both influence route safety.
 route_metrics:

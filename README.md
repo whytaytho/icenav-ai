@@ -1,4 +1,4 @@
-# ICE-NAV AI — Milestones 1–8
+# ICE-NAV AI — Milestones 1–7 + Milestone 8 Validation
 
 **SIH26059 — Ministry of Earth Sciences**  
 AI-Enabled Antarctic Sea-Ice, Iceberg Trajectory, and Navigation Decision Support System
@@ -7,10 +7,15 @@ Public repository: <https://github.com/whytaytho/icenav-ai>
 
 ## Current milestone
 
-Milestones 5–8 add cached environmental forecasts, time-expanded routing,
+Milestones 5–7 and the completed historical-validation portion of Milestone 8 add cached environmental forecasts, time-expanded routing,
 forecast hazard detection, automatic rerouting, deterministic explanations, an
 optional Random Forest iceberg predictor, offline scenario discovery, and a
 historical trajectory-validation screen. Runtime remains fully offline.
+
+Milestone 8 environmental ingestion remains deliberately human-gated: no real
+sea-ice product has yet been approved with an exact product/version, citation,
+licence, projection, resolution, format, and access method. The adapter and
+scenario registry are implemented, but no observed sea-ice scenario is claimed.
 
 ## Demo capabilities
 
@@ -33,6 +38,26 @@ ML metrics apply only to +24-hour giant-tabular-iceberg tracks. Shorter demo
 horizons are not independently validated, and no sea-ice forecast accuracy is
 claimed.
 
+## Measured M7 results
+
+BYU/NIC v8.0 subset: 95 icebergs, 45,345 observations, median sampling interval
+24 hours. Group holdout uses iceberg-disjoint IDs; temporal holdout trains on
+earlier predictions and tests on later predictions.
+
+| Split | Predictor | Mean km | Median km | P90 km | RMSE km | N |
+|---|---|---:|---:|---:|---:|---:|
+| Group | Random Forest | 2.35 | 0.22 | 7.05 | 5.59 | 7,342 |
+| Group | Persistence | 2.93 | 0.00 | 9.64 | 6.80 | 7,342 |
+| Group | Stationary | 2.36 | 0.00 | 7.66 | 6.32 | 7,342 |
+| Temporal | Random Forest | 0.67 | 0.12 | 1.35 | 1.70 | 8,942 |
+| Temporal | Persistence | 0.58 | 0.00 | 0.87 | 2.25 | 8,942 |
+| Temporal | Stationary | 0.77 | 0.00 | 1.86 | 2.66 | 8,942 |
+
+The Random Forest beats persistence on group-holdout mean error but loses on
+temporal-holdout mean error. It is therefore experimental, not an operationally
+validated replacement for persistence. Free-drift accuracy is unavailable
+without collocated historical wind/current observations.
+
 ## Architecture
 
 ```text
@@ -47,7 +72,14 @@ comparison.py → three modes + recommendation
 FastAPI
   GET  /environment/current
   GET  /environment/risk
+  GET  /forecast
+  GET  /forecast/horizons
+  GET  /scenarios
+  GET  /validation/options
+  GET  /validation/times
+  GET  /validation/backtest
   POST /route
+  POST /route/reroute
   POST /routes/compare
         ↓
 api.js → Dashboard.jsx
@@ -135,6 +167,13 @@ npm install
 npm run dev
 ```
 
+Optional one-time M7 historical-data setup (required for case-level validation):
+
+```bash
+python -m backend.ingestion.iceberg_tracks --download
+python -m backend.ingestion.train_iceberg_model
+```
+
 ## Windows PowerShell
 
 From the cloned repository directory:
@@ -155,6 +194,13 @@ In a second PowerShell window:
 cd .\frontend
 npm install
 npm run dev
+```
+
+Optional one-time M7 historical-data setup in PowerShell:
+
+```powershell
+python -m backend.ingestion.iceberg_tracks --download
+python -m backend.ingestion.train_iceberg_model
 ```
 
 To use another backend URL, create `frontend/.env.local`:
@@ -220,6 +266,7 @@ icenav-ai/
 
 - Live environment, coastline, weather, current, and sea ice remain synthetic.
 - Real environmental sea-ice ingestion is source-gated and intentionally not bound to an unconfirmed product.
+- A fresh clone must run the documented BYU/NIC acquisition command before case-level historical validation because explicit redistribution permission for the derived CSV has not been located.
 - Iceberg ML is validated at +24h only on giant tabular bergs; short horizons and small demo bergs are not independently validated.
 - Group holdout mean error is 2.35 km for ML versus 2.93 km for persistence (7,342 samples); temporal holdout mean is 0.67 km for ML versus 0.58 km for persistence (8,942 samples), so ML does not consistently beat persistence.
 - Free-drift historical accuracy is not reported without collocated wind/current observations.
@@ -230,5 +277,5 @@ icenav-ai/
 - The local `CRS.Simple` map is not an operational Antarctic projection.
 - Endpoint selection is currently the committed vessel and destination; map dragging is not implemented.
 - The 30 × 30 grid limits route and exclusion-zone resolution.
-- Only `forecast_hour=0` exists.
-- There is no forecasting, moving-iceberg prediction, animation, auto-rerouting, alerting, ML, external ingestion, authentication, or database.
+- Forecast snapshots are discrete at T+0h, +3h, +6h, +12h, and +24h; environmental forcing is held constant across the horizon.
+- There is no live ingestion, authentication, database, deployment orchestration, or operational polar projection.
