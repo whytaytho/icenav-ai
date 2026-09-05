@@ -201,7 +201,7 @@ def build_scenario() -> dict[str, Any]:
     # tabular berg; every other berg is placed clear of both leads so the
     # planned route starts genuinely low-risk.
     icebergs = [
-        ("IB-04", -67.98, 74.55, 0.58, 92.0, 5.0, 11.0),
+        ("IB-04", -67.98, 74.55, 0.58, 92.0, 5.0, 17.0),
         ("IB-01", -68.94, 76.90, 0.41, 145.0, 1.9, 4.0),
         ("IB-02", -67.20, 72.30, 0.44, 82.0, 1.8, 3.4),
         ("IB-03", -66.75, 74.05, 0.52, 18.0, 1.4, 3.0),

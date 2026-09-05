@@ -173,6 +173,7 @@ export default function AntarcticMap({
   route,
   routeRaw,
   routes = [],
+  showAlternate = false,
   bounds,
   forecastHour = 0,
   committedRoute = null,
@@ -260,7 +261,7 @@ export default function AntarcticMap({
 
         <Pane name="route-lines" style={{ zIndex: 550 }}>
           {hazard?.alert && committedRoute?.length > 1 && <Polyline positions={committedRoute.map((point) => projectPoint(point.lat, point.lon))} pathOptions={{ color: "#ff4f70", weight: 6, dashArray: "8 8", opacity: 0.95 }} />}
-          {hazard?.alternate_route?.route?.length > 1 && <Polyline positions={hazard.alternate_route.route.map((point) => projectPoint(point.lat, point.lon))} pathOptions={{ color: "#6dff88", weight: 7, opacity: 1 }} />}
+          {showAlternate && hazard?.alternate_route?.route?.length > 1 && <Polyline positions={hazard.alternate_route.route.map((point) => projectPoint(point.lat, point.lon))} pathOptions={{ color: "#6dff88", weight: 7, opacity: 1 }} />}
           {routeRaw?.length > 1 && (
             <Polyline
               positions={routeRaw.map((point) => projectPoint(point.lat, point.lon))}

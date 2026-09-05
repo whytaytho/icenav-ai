@@ -37,7 +37,7 @@
       "velocity_kmh": 0.58,
       "heading_deg": 92.0,
       "radius_km": 5.0,
-      "safety_buffer_km": 11.0
+      "safety_buffer_km": 17.0
     },
     {
       "id": "IB-01",
