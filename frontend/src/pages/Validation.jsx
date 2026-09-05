@@ -1,0 +1,15 @@
+import { useEffect, useState } from "react";
+import { getBacktest, getValidationOptions } from "../services/api";
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+
+export default function Validation({ onBack }) {
+  const [options, setOptions] = useState(null);
+  const [berg, setBerg] = useState("");
+  const [results, setResults] = useState({});
+  const [error, setError] = useState("");
+  useEffect(() => { getValidationOptions().then((data) => { setOptions(data); setBerg(data.berg_ids[0] || ""); }).catch((reason) => setError(reason.message)); }, []);
+  useEffect(() => { if (!berg) return; Promise.all(["persistence", "ml", "free_drift"].map(async (model) => [model, await getBacktest(berg, model)])).then((entries) => setResults(Object.fromEntries(entries))).catch((reason) => setError(reason.message)); }, [berg]);
+  const aggregate = options?.summary?.group_holdout;
+  const chartData = [{ horizon: 24, persistence: aggregate?.persistence?.mean_position_error_km, ml: aggregate?.ml?.mean_position_error_km }];
+  return <main className="dashboard-shell validation-page"><header className="console-header"><h1>HISTORICAL VALIDATION</h1><button onClick={onBack}>RETURN TO CONSOLE</button></header><section className="console-module validation-card"><div className="module-heading"><span>BYU/NIC TRACK BACKTEST</span><span>+24H</span></div><p>Trajectory-only validation on giant tabular icebergs. Sub-daily forecasts, sea-ice forecasts, routing risk, and small-berg behaviour are not independently validated.</p>{error && <p className="danger-text">{error}</p>}<label>ICEBERG <select value={berg} onChange={(event) => setBerg(event.target.value)}>{options?.berg_ids.map((id) => <option key={id}>{id}</option>)}</select></label><div style={{ width: "100%", height: 320 }}><ResponsiveContainer><LineChart data={chartData}><CartesianGrid stroke="#263b78" /><XAxis dataKey="horizon" stroke="#aab8df" label={{ value: "HORIZON HOURS", fill: "#aab8df", position: "insideBottom" }} /><YAxis stroke="#aab8df" label={{ value: "ERROR KM", fill: "#aab8df", angle: -90 }} /><Tooltip /><Legend /><Line dataKey="persistence" stroke="#ffcf4a" strokeWidth={4} /><Line dataKey="ml" stroke="#69e6ff" strokeWidth={4} /></LineChart></ResponsiveContainer></div>{aggregate && <p>GROUP HOLDOUT: ML {aggregate.ml.mean_position_error_km.toFixed(2)} KM vs PERSISTENCE {aggregate.persistence.mean_position_error_km.toFixed(2)} KM, N={aggregate.ml.sample_size}. Temporal holdout is reported separately in model metadata.</p>}<div className="validation-bars">{Object.entries(results).map(([model, result]) => <div key={model}><strong>{model.toUpperCase()}</strong>{result.available === false ? <span>UNAVAILABLE — {result.reason}</span> : <><i style={{ width: `${Math.min(100, (result.statistics?.mean_error_km || 0) * 8)}%` }} /><span>{result.statistics?.mean_error_km?.toFixed(2) ?? "—"} KM CASE ERROR / N={result.statistics?.sample_size ?? 0}</span></>}</div>)}</div><small>{options?.data_source}</small></section></main>;
+}

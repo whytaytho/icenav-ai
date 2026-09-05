@@ -1,8 +1,10 @@
 function formatDataSource(dataSource) {
-  return dataSource === "synthetic" ? "Synthetic Demo" : dataSource || "—";
+  if (dataSource === "synthetic") return "Synthetic Demo";
+  if (dataSource === "synthetic_forecast") return "Synthetic Forecast";
+  return dataSource || "—";
 }
 
-export default function StatusBar({ backendOnline, meta }) {
+export default function StatusBar({ backendOnline, meta, riskMeta }) {
   return (
     <section className="status-bar" aria-label="System status">
       <div className="brand-cell">
@@ -25,7 +27,7 @@ export default function StatusBar({ backendOnline, meta }) {
       </div>
       <div>
         <span className="status-label">Data source</span>
-        <strong>{formatDataSource(meta?.data_source)}</strong>
+        <strong className={meta?.data_source?.startsWith("synthetic") ? "source-synthetic" : "source-observed"}>{formatDataSource(meta?.data_source)}</strong>
       </div>
       <div>
         <span className="status-label">Forecast</span>
@@ -34,6 +36,10 @@ export default function StatusBar({ backendOnline, meta }) {
       <div>
         <span className="status-label">Grid</span>
         <strong>{meta ? `${meta.grid.rows} × ${meta.grid.cols}` : "—"}</strong>
+      </div>
+      <div>
+        <span className="status-label">Risk model</span>
+        <strong>{riskMeta?.risk_model_version?.toUpperCase() || "—"}</strong>
       </div>
     </section>
   );

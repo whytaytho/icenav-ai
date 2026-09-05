@@ -9,4 +9,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
-
+backend/data/raw/*.zip
+backend/data/historical/*.csv

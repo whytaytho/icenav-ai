@@ -1,100 +1,133 @@
-# ICE-NAV AI
+# ICE-NAV AI — Milestones 1–8
 
 **SIH26059 — Ministry of Earth Sciences**  
 AI-Enabled Antarctic Sea-Ice, Iceberg Trajectory, and Navigation Decision Support System
 
+Public repository: <https://github.com/whytaytho/icenav-ai>
+
 ## Current milestone
 
-Milestone 1 establishes one complete offline data flow from a committed deterministic synthetic Antarctic scenario through FastAPI and REST to an interactive React-Leaflet map.
+Milestones 5–8 add cached environmental forecasts, time-expanded routing,
+forecast hazard detection, automatic rerouting, deterministic explanations, an
+optional Random Forest iceberg predictor, offline scenario discovery, and a
+historical trajectory-validation screen. Runtime remains fully offline.
 
-Current Milestone 1 uses a deterministic synthetic Antarctic environment. Routing, risk scoring, forecasting and machine learning are not implemented yet.
+## Demo capabilities
 
-## What the demo shows
+- A bounded 30 × 30 synthetic Antarctic environment and navigation risk surface
+- Navigable-only A* routing with deterministic tie-breaking
+- No diagonal passage between two blocked orthogonal cells
+- Supercover line-of-sight path smoothing without crossing forbidden cells
+- Fastest, Balanced, and Safest routes controlled by configurable risk aversion
+- Distance, ice-adjusted ETA, route risk, safety score, and cells traversed
+- Estimated Fuel Index (ice-adjusted km) for every route
+- Rule-based recommendation with the actual comparison numbers in its reason
+- One-click three-route overlay with distinct arcade-console colours
+- Optional raw grid path for demonstrating the underlying A* search
+- Discrete NOW/+3h/+6h/+12h/+24h forecast snapshots with sea-ice advection
+- Persistence, free-drift, and optional ML iceberg predictors
+- Committed-route hazard detection, alternate route, and arithmetic explanation
+- BYU/NIC +24-hour historical iceberg backtesting
 
-- A bounded prototype corridor from 69.5°S to 66.5°S and 71°E to 79°E
-- A research vessel and the Bharati-approach destination
-- Eight iceberg markers with schematic safety-buffer rings
-- A 30 × 30 grid of normalized sea-ice concentration
-- Synthetic, hand-authored land / non-navigable areas
-- Backend health, scenario, data source, forecast hour, and grid status
-
-No external map tiles, environmental APIs, databases, or internet connection are required at runtime. Internet access is only needed once to install Python and npm dependencies.
+ML metrics apply only to +24-hour giant-tabular-iceberg tracks. Shorter demo
+horizons are not independently validated, and no sea-ice forecast accuracy is
+claimed.
 
 ## Architecture
 
 ```text
-backend/data/demo_scenario.json
+demo_scenario.json
         ↓
-FastAPI  GET /environment/current
+risk.py + weights.yaml → one navigation risk surface
         ↓
-frontend/src/services/api.js
+routing.py → deterministic A* + smoothing + ETA
+fuel.py    → Estimated Fuel Index
+comparison.py → three modes + recommendation
         ↓
-Dashboard.jsx (network/loading/error state)
+FastAPI
+  GET  /environment/current
+  GET  /environment/risk
+  POST /route
+  POST /routes/compare
         ↓
-AntarcticMap.jsx + StatusBar.jsx (presentation)
+api.js → Dashboard.jsx
+        ↓
+NavigationPanel + RouteComparison + AntarcticMap
 ```
 
-The map uses React-Leaflet with a tile-free `CRS.Simple` canvas and a local longitude scale based on the corridor midpoint latitude. This avoids presenting Web Mercator tiles as a reliable Antarctic navigation chart. It is still only a local visualization approximation; a production Antarctic implementation should use a validated polar projection such as `EPSG:3031`.
+The calculation modules are independent of HTTP and file loading. FastAPI loads
+and validates the complete YAML configuration once at startup, computes the risk
+surface once per comparison request, and passes data into the pure engines.
 
-## Directory structure
+## Routing model
+
+Every A* edge uses kilometre-equivalent cost:
 
 ```text
-icenav-ai/
-├── backend/
-│   ├── config/weights.yaml
-│   ├── data/generate_scenario.py
-│   ├── data/demo_scenario.json
-│   ├── engine/geo.py
-│   ├── engine/grid.py
-│   ├── main.py
-│   └── requirements.txt
-├── docs/data-contract.md
-├── frontend/
-│   ├── src/components/AntarcticMap.jsx
-│   ├── src/components/StatusBar.jsx
-│   ├── src/pages/Dashboard.jsx
-│   ├── src/services/api.js
-│   ├── src/App.jsx
-│   ├── src/main.jsx
-│   ├── package.json
-│   └── vite.config.js
-├── tests/
-├── .gitignore
-├── LICENSE
-└── README.md
+risk_norm = mean(risk_from, risk_to) / 100
+step_cost = segment_km × (1 + alpha × risk_norm)
 ```
+
+The heuristic is raw straight-line haversine distance. It is admissible because
+the edge multiplier can never be below `1.0`; true remaining cost must therefore
+be at least the direct distance.
+
+Current mode values:
+
+| Mode | Alpha | Intent |
+|---|---:|---|
+| Fastest | 0.5 | Prefer shorter distance |
+| Balanced | 2.0 | Trade distance against risk |
+| Safest | 6.0 | Prefer lower-risk water |
+
+All active risk, routing, speed, fuel, and recommendation values live in
+`backend/config/weights.yaml`. They are configurable engineering-demo values,
+not scientifically calibrated operating limits.
+
+## Estimated Fuel Index
+
+For each segment:
+
+```text
+fuel contribution = segment_km × resistance_factor(mean_segment_ice)
+```
+
+The **Estimated Fuel Index (ice-adjusted km)** is a dimensionless ice-adjusted
+distance proxy. It is not litres, tonnes, measured fuel consumption, or a
+validated vessel fuel model. Every resistance factor is at least `1.0`, so the
+index can never be lower than route distance.
 
 ## Requirements
 
+- Git
 - Python 3.9 or later
 - Node.js 18 or later and npm
-- PowerShell on Windows or a POSIX shell on macOS
+- Internet access once to install dependencies
 
-## macOS setup
+Runtime uses no external map tiles, data APIs, or internet connection.
 
-Run from the cloned project directory:
+## Clone
+
+```text
+git clone https://github.com/whytaytho/icenav-ai.git
+cd icenav-ai
+```
+
+## macOS / Linux
+
+From the repository root:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r backend/requirements.txt
-```
-
-Regenerate the committed scenario and run tests:
-
-```bash
 python backend/data/generate_scenario.py
 python -m pytest
-```
-
-Start FastAPI:
-
-```bash
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-In a second terminal, install and start the frontend:
+In a second terminal:
 
 ```bash
 cd frontend
@@ -102,46 +135,29 @@ npm install
 npm run dev
 ```
 
-## Backend setup (Windows PowerShell)
+## Windows PowerShell
 
-Run from `C:\Users\prath\Documents\icenav-ai`:
+From the cloned repository directory:
 
 ```powershell
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r .\backend\requirements.txt
-```
-
-Regenerate the committed scenario:
-
-```powershell
 python .\backend\data\generate_scenario.py
-```
-
-Start FastAPI:
-
-```powershell
+python -m pytest
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Run tests from the repository root:
+In a second PowerShell window:
 
 ```powershell
-python -m pytest
-```
-
-## Frontend setup (Windows PowerShell)
-
-Open a second PowerShell window and run:
-
-```powershell
-cd C:\Users\prath\Documents\icenav-ai\frontend
+cd .\frontend
 npm install
 npm run dev
 ```
 
-The frontend defaults to `http://localhost:8000`. To use another backend URL, create `frontend\.env.local` with:
+To use another backend URL, create `frontend/.env.local`:
 
 ```dotenv
 VITE_API_BASE=http://localhost:8000
@@ -150,21 +166,69 @@ VITE_API_BASE=http://localhost:8000
 ## URLs
 
 - Frontend: <http://localhost:5173>
-- Backend health: <http://localhost:8000/health>
-- Current environment: <http://localhost:8000/environment/current>
-- Interactive API docs: <http://localhost:8000/docs>
+- Health: <http://localhost:8000/health>
+- Environment: <http://localhost:8000/environment/current>
+- Risk surface: <http://localhost:8000/environment/risk>
+- Risk configuration: <http://localhost:8000/config/risk>
+- Interactive API documentation: <http://localhost:8000/docs>
+- Forecast horizons: <http://localhost:8000/forecast/horizons>
+- Forecast example: <http://localhost:8000/forecast?hour=6>
+- Scenario list: <http://localhost:8000/scenarios>
 
-## Data contract
+`POST /route` requires `fastest`, `balanced`, or `safest`. `POST
+/routes/compare` computes all three against one risk surface. Example requests
+are documented in `docs/data-contract.md` and available interactively through
+FastAPI’s `/docs` page.
 
-The frozen Milestone 1 schema and conventions are documented in [`docs/data-contract.md`](docs/data-contract.md). Coordinates use named `lat` and `lon` fields. Physical fields include units, vector directions are clockwise from true north and point toward motion, and ice concentration is normalized from `0.0` to `1.0`.
+## Directory structure
 
-Scenario generation contains no live clock or unseeded randomness, so repeated runs produce the same JSON bytes. The committed `demo_scenario.json` is intentionally tracked for offline reproducibility.
+```text
+icenav-ai/
+├── backend/
+│   ├── config/weights.yaml
+│   ├── data/demo_scenario.json
+│   ├── data/generate_scenario.py
+│   ├── engine/comparison.py
+│   ├── engine/fuel.py
+│   ├── engine/geo.py
+│   ├── engine/grid.py
+│   ├── engine/risk.py
+│   ├── engine/routing.py
+│   └── main.py
+├── docs/data-contract.md
+├── frontend/src/
+│   ├── components/AntarcticMap.jsx
+│   ├── components/LayerToggle.jsx
+│   ├── components/Legend.jsx
+│   ├── components/NavigationPanel.jsx
+│   ├── components/RouteComparison.jsx
+│   ├── components/StatusBar.jsx
+│   ├── pages/Dashboard.jsx
+│   ├── services/api.js
+│   └── styles.css
+└── tests/
+    ├── test_api.py
+    ├── test_geo.py
+    ├── test_grid.py
+    ├── test_modes_fuel.py
+    ├── test_risk.py
+    ├── test_routing.py
+    └── test_scenario.py
+```
 
 ## Current limitations
 
-- All environmental and land/ice-shelf data are synthetic and not survey-grade.
-- The corridor is an engineering demonstration, not an operational navigation product.
-- The local map projection is suitable only for this bounded visualization.
-- Safety-buffer rings are schematic screen-space indicators and are not map-scale circles.
-- Non-land cells remain navigable in Milestone 1; concentration is visualization only.
-- There is no routing, risk scoring, route mode, fuel model, forecast, prediction, machine learning, data ingestion, playback, auto-rerouting, authentication, database, or deployment configuration.
+- Live environment, coastline, weather, current, and sea ice remain synthetic.
+- Real environmental sea-ice ingestion is source-gated and intentionally not bound to an unconfirmed product.
+- Iceberg ML is validated at +24h only on giant tabular bergs; short horizons and small demo bergs are not independently validated.
+- Group holdout mean error is 2.35 km for ML versus 2.93 km for persistence (7,342 samples); temporal holdout mean is 0.67 km for ML versus 0.58 km for persistence (8,942 samples), so ML does not consistently beat persistence.
+- Free-drift historical accuracy is not reported without collocated wind/current observations.
+- The corridor is an engineering demo, not an operational navigation product.
+- Risk weights, mode alphas, speed factors, and resistance factors are not calibrated.
+- ETA factors are illustrative and are not measured performance for a real hull or ice class.
+- Estimated Fuel Index is a proxy and is not calibrated against any vessel.
+- The local `CRS.Simple` map is not an operational Antarctic projection.
+- Endpoint selection is currently the committed vessel and destination; map dragging is not implemented.
+- The 30 × 30 grid limits route and exclusion-zone resolution.
+- Only `forecast_hour=0` exists.
+- There is no forecasting, moving-iceberg prediction, animation, auto-rerouting, alerting, ML, external ingestion, authentication, or database.

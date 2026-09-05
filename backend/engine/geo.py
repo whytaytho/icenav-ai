@@ -10,6 +10,8 @@ from __future__ import annotations
 import math
 
 EARTH_RADIUS_KM = 6371.0088
+KM_PER_NAUTICAL_MILE = 1.852
+MPS_TO_KMH = 3.6
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -75,4 +77,3 @@ def destination_point(
     destination_lat = math.degrees(destination_lat_rad)
     destination_lon = (math.degrees(destination_lon_rad) + 180.0) % 360.0 - 180.0
     return destination_lat, destination_lon
-

@@ -1,7 +1,7 @@
 {
   "name": "icenav-ai-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,8 @@
     "leaflet": "1.9.4",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-leaflet": "4.2.1"
+    "react-leaflet": "4.2.1",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "4.3.4",

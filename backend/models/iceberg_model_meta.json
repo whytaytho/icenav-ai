@@ -1,0 +1,78 @@
+{
+  "trained_at": "2026-09-05T20:02:30.315922+00:00",
+  "sklearn_version": "1.6.1",
+  "feature_names": [
+    "lat",
+    "lon",
+    "velocity_north_kmh",
+    "velocity_east_kmh",
+    "previous_velocity_north_kmh",
+    "previous_velocity_east_kmh",
+    "hours_since_previous",
+    "prediction_horizon_hours",
+    "day_of_year"
+  ],
+  "horizons_hours": [
+    24
+  ],
+  "data_source": "BYU/NIC Consolidated Antarctic Iceberg Tracking Database v8.0",
+  "split_strategy": "group by berg_id; temporal holdout additionally reported",
+  "training_samples": 37364,
+  "metrics": {
+    "group_holdout": {
+      "ml": {
+        "sample_size": 7342,
+        "mean_position_error_km": 2.3496146274828504,
+        "median_position_error_km": 0.2217242299044391,
+        "p90_position_error_km": 7.052345862523316,
+        "rmse_km": 5.593209996830349
+      },
+      "persistence": {
+        "sample_size": 7342,
+        "mean_position_error_km": 2.934840150478294,
+        "median_position_error_km": 0.0,
+        "p90_position_error_km": 9.640446570548608,
+        "rmse_km": 6.800270418373968
+      },
+      "zero": {
+        "sample_size": 7342,
+        "mean_position_error_km": 2.3577835384453003,
+        "median_position_error_km": 0.0,
+        "p90_position_error_km": 7.660280990846362,
+        "rmse_km": 6.319089499890424
+      },
+      "free_drift": {
+        "available": false,
+        "reason": "No collocated historical wind/current dataset was confirmed."
+      }
+    },
+    "temporal_holdout": {
+      "ml": {
+        "sample_size": 8942,
+        "mean_position_error_km": 0.6656135332903547,
+        "median_position_error_km": 0.12064886844832803,
+        "p90_position_error_km": 1.3458086394787696,
+        "rmse_km": 1.7033017024002641
+      },
+      "persistence": {
+        "sample_size": 8942,
+        "mean_position_error_km": 0.5785444306834937,
+        "median_position_error_km": 0.0,
+        "p90_position_error_km": 0.8703329385009168,
+        "rmse_km": 2.25468231049104
+      },
+      "zero": {
+        "sample_size": 8942,
+        "mean_position_error_km": 0.7746602558407926,
+        "median_position_error_km": 0.0,
+        "p90_position_error_km": 1.8621190315310643,
+        "rmse_km": 2.6630082045782895
+      },
+      "free_drift": {
+        "available": false,
+        "reason": "No collocated historical wind/current dataset was confirmed."
+      }
+    }
+  },
+  "validated_resolution": "daily (+24h only)"
+}

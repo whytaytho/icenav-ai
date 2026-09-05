@@ -28,6 +28,30 @@ def test_environment_endpoint() -> None:
     assert len(scenario["cells"]) == 900
 
 
+def test_risk_endpoint() -> None:
+    response = client.get("/environment/risk")
+    assert response.status_code == 200
+    risk_grid = response.json()
+    assert risk_grid["meta"]["risk_model_version"] == "v1"
+    assert len(risk_grid["cells"]) == 900
+    assert risk_grid["summary"]["navigable_cells"] > 0
+    assert risk_grid["summary"]["blocked_cells"] > 0
+
+
+def test_risk_endpoint_accepts_supported_future_hour() -> None:
+    response = client.get("/environment/risk?forecast_hour=6")
+    assert response.status_code == 200
+    assert response.json()["meta"]["forecast_hour"] == 6
+
+
+def test_risk_config_endpoint() -> None:
+    response = client.get("/config/risk")
+    assert response.status_code == 200
+    risk_config = response.json()
+    assert risk_config["version"] == "v1"
+    assert sum(risk_config["weights"].values()) == 1.0
+
+
 def test_missing_scenario_fails_clearly(monkeypatch, tmp_path) -> None:
     missing_path = tmp_path / "missing-scenario.json"
     monkeypatch.setattr(main, "SCENARIO_PATH", missing_path)

@@ -1,8 +1,109 @@
-# Reserved configuration location for later ICE-NAV milestones.
-# None of these sections are consumed by Milestone 1.
-milestone_1_status: unused_placeholders_only
+# CONFIGURABLE PROTOTYPE VALUES chosen to demonstrate the decision architecture.
+# These are NOT scientifically calibrated constants. Operational deployment
+# would tune them against vessel ice class, historical voyages, and polar
+# navigation expertise.
 
-risk_weights: {}
-route_modes: {}
-hard_constraints: {}
+risk_model:
+  version: v1
+  # Display-scale compression for navigable-cell soft risk. Hard blocks remain
+  # 100. This is an engineered demo calibration, not an operational threshold.
+  soft_risk_scale: 0.30
 
+  # Relative contribution of each soft-risk component. Must sum to 1.0.
+  weights:
+    sea_ice: 0.50
+    iceberg: 0.25
+    wind: 0.15
+    current: 0.10
+
+  # Binary constraints: matching cells are forbidden, not merely expensive.
+  hard_constraints:
+    max_ice_concentration: 0.80
+    block_land: true
+    iceberg_exclusion_uses_safety_buffer: true
+
+  # Prototype ceilings used to normalize physical inputs to a 0-100 score.
+  normalisation:
+    sea_ice_block_threshold: 0.80
+    wind_speed_ms_at_100: 25.0
+    current_speed_ms_at_100: 1.5
+
+  # (iceberg edge distance in km, raw risk) interpolation breakpoints.
+  iceberg_proximity_km:
+    - [3.0, 100.0]
+    - [5.0, 80.0]
+    - [10.0, 50.0]
+    - [20.0, 20.0]
+    - [30.0, 0.0]
+
+# Risk-aversion coefficient in cost = km * (1 + alpha * risk_norm).
+route_modes:
+  fastest:  {alpha: 0.5}
+  balanced: {alpha: 2.0}
+  safest:   {alpha: 6.0}
+
+# Mean exposure and worst-cell exposure both influence route safety.
+route_metrics:
+  mean_weight: 0.5
+  max_weight: 0.5
+
+# Illustrative speed factors, not measured vessel performance data.
+vessel_model:
+  speed_factor_by_ice:
+    - [0.20, 1.00]
+    - [0.40, 0.85]
+    - [0.60, 0.65]
+    - [0.80, 0.40]
+
+routing:
+  allow_diagonal: true
+  forbid_diagonal_corner_cutting: true
+  max_node_expansions: 200000
+  # Disabled until smoothing evaluates the same objective as A*. Pure
+  # navigability-only shortcuts can invalidate Fastest/Balanced ordering.
+  smoothing_enabled: false
+  snap_radius_cells: 3
+  time_expanded: true
+  time_bucket_hours: 1.0
+
+forecast:
+  horizons_hours: [0, 3, 6, 12, 24]
+  substep_hours: 0.5
+  iceberg_wind_factor: 0.02
+  seaice_wind_factor: 0.02
+  seaice_diffusion: 0.10
+  advection_enabled: true
+  drift_model: free_drift
+  ml_model_path: backend/models/iceberg_model.pkl
+  ml_metadata_path: backend/models/iceberg_model_meta.json
+  ml_fallback_on_error: true
+  max_iceberg_speed_kmh: 5.0
+
+hazard:
+  min_safety_score: 65.0
+  max_safety_drop: 20.0
+  block_triggers_alert: true
+  severity_bands:
+    advisory: 10.0
+    warning: 20.0
+    critical: 35.0
+
+ingestion:
+  missing_is_navigable: false
+  real_scenario_glob: real_scenario_*.json
+
+# Estimated Fuel Index is an ice-adjusted distance proxy, not litres or tonnes.
+fuel_model:
+  units: "ice-adjusted kilometres (dimensionless proxy, NOT litres or tonnes)"
+  resistance_by_ice:
+    - [0.20, 1.0]
+    - [0.40, 1.2]
+    - [0.60, 1.5]
+    - [0.80, 2.0]
+
+# Deterministic, inspectable route recommendation rule.
+recommendation:
+  rule: safety_gain_per_extra_km
+  min_safety_score: 70.0
+  min_safety_gain: 10.0
+  max_extra_distance_pct: 25.0

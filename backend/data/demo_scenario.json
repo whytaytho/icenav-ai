@@ -31,7 +31,7 @@
   },
   "icebergs": [
     {
-      "id": "IB-01",
+      "id": "IB-04",
       "lat": -68.78,
       "lon": 72.82,
       "velocity_kmh": 0.62,
@@ -41,8 +41,8 @@
     },
     {
       "id": "IB-02",
-      "lat": -68.38,
-      "lon": 74.08,
+      "lat": -67.86,
+      "lon": 75.36,
       "velocity_kmh": 0.44,
       "heading_deg": 82.0,
       "radius_km": 1.8,
@@ -58,9 +58,9 @@
       "safety_buffer_km": 2.5
     },
     {
-      "id": "IB-04",
-      "lat": -67.86,
-      "lon": 75.36,
+      "id": "IB-01",
+      "lat": -68.32,
+      "lon": 74.32,
       "velocity_kmh": 0.83,
       "heading_deg": 58.0,
       "radius_km": 2.0,
