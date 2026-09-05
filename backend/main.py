@@ -21,7 +21,7 @@ from backend.engine.routing import plan_route
 from backend.api.forecast import ForecastCache
 from backend.engine.explain import explain_route_change
 from backend.engine.geo import haversine_km
-from backend.engine.hazard import detect_hazard, evaluate_route
+from backend.engine.hazard import detect_hazard, evaluate_route, remaining_route_metrics
 from backend.engine.iceberg import FeatureOrderMismatchError, warm_ml_model
 from backend.engine.scenarios import ScenarioRegistry
 from backend.engine.validation import run_backtest
@@ -338,12 +338,33 @@ def route_reroute(request: RerouteRequest) -> dict[str, Any]:
     alternate["forecast_evaluation"] = alternate_eval
     explained_alternate = {**alternate, "metrics": {**alternate["metrics"], "safety_score": alternate_eval["safety_score"]}}
     explanation = explain_route_change(base_eval, forecast_eval, hazard, explained_alternate)
-    current_metrics = {"safety_score": forecast_eval["safety_score"], "distance_km": 0.0, "eta_hours": 0.0, "fuel_index": 0.0}
+    remaining = remaining_route_metrics(
+        forecast_eval["waypoints"],
+        _coordinates(request.current_position),
+        forecast_scenario,
+        forecast_risk,
+        APP_CONFIG,
+        float(alternate.get("straight_line_km") or 0.0),
+    )
+    current_metrics = {
+        "safety_score": forecast_eval["safety_score"],
+        "distance_km": round(remaining["distance_km"], 1) if remaining else None,
+        "eta_hours": round(remaining["eta_hours"], 1) if remaining else None,
+        "fuel_index": round(remaining["fuel_index"], 1) if remaining else None,
+    }
     comparison = {}
     for key in ("safety_score", "distance_km", "eta_hours", "fuel_index"):
         original = current_metrics[key]
         new = alternate_eval["safety_score"] if key == "safety_score" else alternate["metrics"][key]
-        comparison[key] = {"original": original, "alternate": new, "delta": round(new-original, 1)}
+        delta = round(new - original, 1) if original is not None else None
+        comparison[key] = {"original": original, "alternate": new, "delta": delta}
+    explanation["route_change"].update(
+        {
+            "additional_distance_km": comparison["distance_km"]["delta"],
+            "additional_time_hours": comparison["eta_hours"]["delta"],
+            "additional_fuel_index": comparison["fuel_index"]["delta"],
+        }
+    )
     return {**hazard, "original_route": forecast_eval, "alternate_route": alternate, "explanation": explanation, "comparison": comparison}
 
 
