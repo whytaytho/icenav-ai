@@ -36,7 +36,30 @@ def test_demo_closing_lead_reroutes_around_ib04():
     environment = client.get("/environment/current").json()
     route = client.post("/route", json={"start": environment["vessel"], "destination": environment["destination"], "mode": "balanced"}).json()
     result = client.post("/route/reroute", json={"current_route": [{"lat": point["lat"], "lon": point["lon"], "arrival_hour": point.get("arrival_hour")} for point in route["route_raw"]], "current_position": environment["vessel"], "destination": environment["destination"], "mode": "balanced", "evaluate_at_hour": 6}).json()
-    assert result["original_safety"] >= 65
-    assert result["forecast_safety"] <= result["original_safety"] - 20
+    # These bands guard the live demonstration, not just the code path. The
+    # committed scenario is tuned so a judge sees a clearly safe route become
+    # clearly unsafe and then recover. If a scenario change quietly degrades
+    # any of those three numbers, the presentation loses its point, so fail
+    # here rather than discovering it on stage.
+    assert result["original_safety"] >= 85, "planned route must start visibly safe"
+    assert result["forecast_safety"] <= 55, "forecast route must become visibly unsafe"
+    assert result["original_safety"] - result["forecast_safety"] >= 30, "drop must be dramatic"
     assert result["responsible_icebergs"] == ["IB-04"]
-    assert result["alternate_route"]["forecast_evaluation"]["safety_score"] > result["forecast_safety"]
+
+    recovered = result["alternate_route"]["forecast_evaluation"]["safety_score"]
+    assert recovered > result["forecast_safety"]
+    assert recovered >= 85, "reroute must restore a genuinely safe route"
+
+    # The reroute is a modest detour, not a different voyage.
+    assert 0 < result["comparison"]["distance_km"]["delta"] <= 40
+    assert result["comparison"]["fuel_index"]["delta"] > 0
+
+    # Every "additional" figure must be a real difference against the
+    # committed route's remaining legs, never the alternate's absolute total.
+    change = result["explanation"]["route_change"]
+    assert change["additional_distance_km"] == result["comparison"]["distance_km"]["delta"]
+    assert change["additional_distance_km"] < result["alternate_route"]["metrics"]["distance_km"] / 2
+
+    # The conflict should land mid-voyage; a hazard on the first waypoints
+    # gives the vessel nothing to decide and reads as contrived.
+    assert result["first_conflict_waypoint_index"] >= 4
