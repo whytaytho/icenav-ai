@@ -3,6 +3,7 @@
 **AI-Enabled Antarctic Sea-Ice, Iceberg Trajectory, and Navigation Decision Support System**
 
 **SIH26059 — Ministry of Earth Sciences**
+**Team:Daemon(id-22)**
 
 Repository: <https://github.com/whytaytho/icenav-ai>
 
