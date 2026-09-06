@@ -10,4 +10,6 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 backend/data/raw/*.zip
+backend/data/raw/*.nc
 backend/data/historical/*.csv
+backend/data/real_scenario_*.json
