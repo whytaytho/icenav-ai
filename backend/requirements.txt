@@ -24,6 +24,7 @@ scikit-learn==1.6.1
 # Only imported by backend/ingestion/preprocess.py for the EPSG:3031 sea-ice
 # reprojection path. The application and the demo run without it.
 pyproj==3.8.0
+netCDF4==1.7.4  # only used by backend/ingestion for NSIDC sea-ice extraction
 
 # Test-only.
 pytest==9.1.1

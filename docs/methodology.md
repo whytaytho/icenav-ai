@@ -50,15 +50,29 @@ scientific reference (`TODO(citation)`). Sea ice uses semi-Lagrangian backtrace
 plus mild diffusion. Wind and current remain constant over 24 hours.
 
 ## Environmental sea-ice ingestion gate
+CONFIRMED source: NOAA/NSIDC Climate Data Record of Passive Microwave Sea Ice
+Concentration, Version 6 (dataset G02202). DOI 10.7265/b18j-z797. Citation:
+Meier, W. N., Fetterer, F., Windnagel, A. K., Stewart, J. S. & Stafford, T.
+(2024). NetCDF, EPSG:3412 (NSIDC Sea Ice Polar Stereographic South), 25 km
+grid, daily files, 1978-present. Verified directly against a live granule
+(sic_pss25_20230715_F17_v06r00.nc) in this environment: no Earthdata Login
+is required for this specific mirror (noaadata.apps.nsidc.org), contrary to
+NSIDC's general guidance for other access paths; concentration is decoded by
+netCDF4 into [0,1] with missing/land/pole-hole pixels as MaskedArray entries,
+never as out-of-range sentinels. As with the BYU/NIC iceberg archive, no
+explicit redistribution licence for a derived subset was located, so raw
+granules and built real_scenario_*.json files are gitignored; each machine
+runs the acquisition step once.
 
-No real environmental sea-ice product has been human-confirmed. Before binding
-`fetch_seaice.py`, record exact product/version, DOI, licence, access method,
-native projection/resolution, temporal coverage, latency, and format here. The
-adapter supports EPSG:3031 transforms and missing-data semantics, but no real
-scenario or source claim is fabricated.
+For 2023-07-15 (mid-winter, near seasonal maximum): 739 of 900 corridor cells
+returned an observed concentration (0.62-1.00), 161 were missing. Icebergs
+are intentionally omitted from observed scenarios -- there is no real-time
+position feed; the BYU/NIC archive is historical only.
 
-A 25 km source displayed on the approximately 11 km grid does not gain real
-detail. Missing pixels remain `data_quality: missing` and non-navigable.
+One-time acquisition:
+
+    python -m backend.ingestion.fetch_seaice --download --date 2023-07-15
+    python -m backend.data.build_real_scenario --date 2023-07-15
 
 ## Validation boundary
 

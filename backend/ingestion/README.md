@@ -1,19 +1,20 @@
 # Offline ingestion
 
-Runtime API handlers never download data. `iceberg_tracks.py --download` is a
-manual, ahead-of-time utility for the confirmed BYU/NIC archive. Environmental
-sea-ice fetching remains deliberately gated until the team records a specific
-product, licence, DOI, projection, resolution, and access method in
-`docs/methodology.md`.
+Runtime API handlers never download data. Both scripts below are manual,
+ahead-of-time utilities for confirmed sources.
 
-From the repository root, while online once:
+## Iceberg tracks (BYU/NIC v8.0)
 
-```bash
-python -m backend.ingestion.iceberg_tracks --download
-python -m backend.ingestion.train_iceberg_model
-```
+    python -m backend.ingestion.iceberg_tracks --download
+    python -m backend.ingestion.train_iceberg_model
 
-The first command caches the v8.0 ZIP and writes the tidy 60–90°E subset. Both
-data files are ignored because explicit permission to republish a derived CSV
-was not located on the source page. After acquisition, API and validation-page
-requests use local files only and make no network calls.
+## Sea ice (NOAA/NSIDC CDR G02202 v6)
+
+    python -m backend.ingestion.fetch_seaice --download --date 2023-07-15
+    python -m backend.data.build_real_scenario --date 2023-07-15
+
+No Earthdata Login is required for the sea-ice mirror used here
+(noaadata.apps.nsidc.org) -- verified directly. Both pipelines write files
+that are gitignored (no explicit redistribution licence for a derived
+subset was located for either source), so each machine runs its acquisition
+step once while online; everything after that is offline.

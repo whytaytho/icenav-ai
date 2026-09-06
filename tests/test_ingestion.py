@@ -48,6 +48,18 @@ def test_request_time_paths_do_not_open_network_connections(monkeypatch):
         "/route", json={"start": start, "destination": destination, "mode": "balanced"}
     ).json()
 
+    # Any scenario discovered on disk -- the committed synthetic one always,
+    # plus a real_scenario_*.json if this machine has run the sea-ice
+    # acquisition step -- must be selectable with no network access. This
+    # does not hardcode a real scenario's id (it encodes a date) so the test
+    # passes identically on a fresh clone and on a machine that has ingested
+    # observed data.
+    scenario_ids = [entry["scenario_id"] for entry in client.get("/scenarios").json()]
+    scenario_responses = [
+        client.get(f"/environment/current?scenario={scenario_id}")
+        for scenario_id in scenario_ids
+    ]
+
     # Every endpoint the live demonstration touches, not a sample of them.
     # This test is the guarantee that a failed venue network cannot break the
     # presentation, so a new endpoint must be added here when it is added to
@@ -56,6 +68,7 @@ def test_request_time_paths_do_not_open_network_connections(monkeypatch):
         client.get("/health"),
         client.get("/scenarios"),
         client.get("/environment/current"),
+        *scenario_responses,
         client.get("/environment/risk"),
         client.get("/environment/risk?forecast_hour=6"),
         client.get("/config/risk"),
